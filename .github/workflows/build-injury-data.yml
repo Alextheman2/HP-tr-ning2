@@ -20,14 +20,34 @@ jobs:
           python-version: '3.12'
       - name: Build exact dataset
         run: python injury-chart/build_injury_data.py
-      - name: Commit generated dataset
+      - name: Embed dataset directly in page
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html_path = Path('injury-chart/index.html')
+          data_path = Path('injury-chart/injury-data.json')
+          html = html_path.read_text(encoding='utf-8')
+          data = data_path.read_text(encoding='utf-8')
+          replacement = "DATA=" + data + ";setup();"
+          pattern = r"fetch\('\./injury-data\.json',[\s\S]*?\);\n</script>"
+          new_html, n = re.subn(pattern, replacement + "\n</script>", html, count=1)
+          if n == 0:
+              # Replace an already-embedded block on subsequent runs.
+              pattern2 = r"DATA=\{\"season\":\"2025/26\"[\s\S]*?;setup\(\);\n</script>"
+              new_html, n = re.subn(pattern2, replacement + "\n</script>", html, count=1)
+          if n == 0:
+              raise SystemExit('Could not find data-loading block in index.html')
+          html_path.write_text(new_html, encoding='utf-8')
+          PY
+      - name: Commit generated static page
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add injury-chart/injury-data.json
+          git add injury-chart/injury-data.json injury-chart/index.html
           if git diff --cached --quiet; then
             echo 'No changes'
           else
-            git commit -m 'Build exact injury dataset [skip ci]'
+            git commit -m 'Embed exact injury dataset in page [skip ci]'
             git push
           fi
