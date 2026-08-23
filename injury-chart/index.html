@@ -1,15 +1,120 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PL Injuries 2025/26</title><style>body{margin:0;padding:14px;background:#0f1115;color:#f5f7fa;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{max-width:1400px;margin:auto}h1{font-size:22px}.sub,.note{color:#aeb6c2;font-size:12px;line-height:1.45}.controls,.picker{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}.card{background:#171a21;border:1px solid #252b35;border-radius:14px;padding:10px}svg{width:100%;height:60vh;min-height:380px;display:block}button,select,input{border:1px solid #3c4452;background:#20252e;color:#fff;padding:8px 10px;border-radius:10px;font-weight:600;font-size:12px}button.off{opacity:.3}.details{margin-top:10px;min-height:120px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}.title{font-weight:800;margin-bottom:8px}.picker label{display:flex;align-items:center;gap:6px}@media(max-width:700px){svg{height:52vh;min-height:320px}.cols{grid-template-columns:1fr}}</style></head><body><div class="app"><h1>Premier League injuries — 2025/26</h1><div class="sub">Use the graph to compare teams. For Tottenham, Arsenal and Chelsea, use the selector below to inspect the reconstructed injury list for any specific match.</div><div class="controls" id="controls"></div><div class="card"><svg id="chart"></svg></div><div class="card details"><div class="picker"><label>Team <select id="teamPick"><option>Tottenham</option><option>Arsenal</option><option>Chelsea</option></select></label><label>Match <input id="matchPick" type="range" min="1" max="52" value="1"></label><button id="prev">◀</button><button id="next">▶</button></div><div id="details"></div></div><div class="note">“Recovering” means still unavailable/not match-ready because of the injury. Spurs is the most heavily checked reconstruction; Arsenal and Chelsea remain approximate around some return dates.</div></div><script>
-const availability={"AFC Bournemouth":88.4,"Arsenal":86.0,"Aston Villa":88.5,"Brentford":88.8,"Brighton":86.3,"Burnley":82.6,"Chelsea":84.6,"Crystal Palace":87.9,"Everton":90.8,"Fulham":91.6,"Leeds United":90.4,"Liverpool":87.7,"Manchester City":87.8,"Manchester United":90.7,"Newcastle United":83.5,"Nottingham Forest":86.8,"Sunderland":91.9,"Tottenham":76.5,"West Ham":96.3,"Wolves":92.7};
-const spells={
-Tottenham:[['Dejan Kulusevski',1,52,'injured'],['James Maddison',1,46,'injured'],['James Maddison',47,49,'recovering'],['Radu Dragusin',1,23,'injured'],['Radu Dragusin',24,25,'recovering'],['Dominic Solanke',4,28,'injured'],['Dominic Solanke',29,30,'recovering'],['Yves Bissouma',2,17,'injured'],['Yves Bissouma',18,19,'recovering'],['Kota Takai',1,17,'injured'],['Kota Takai',18,19,'recovering'],['Ben Davies',7,9,'injured'],['Ben Davies',12,19,'injured'],['Ben Davies',32,52,'injured'],['Destiny Udogie',1,2,'injured'],['Destiny Udogie',23,31,'injured'],['Destiny Udogie',32,32,'recovering'],['Mohammed Kudus',18,19,'injured'],['Mohammed Kudus',30,52,'injured'],['Rodrigo Bentancur',31,46,'injured'],['Lucas Bergvall',18,19,'injured'],['Lucas Bergvall',34,48,'injured'],['Cristian Romero',12,15,'injured'],['Cristian Romero',49,52,'injured'],['Randal Kolo Muani',4,7,'injured'],['Randal Kolo Muani',8,8,'recovering'],['Richarlison',32,38,'injured'],['Pedro Porro',35,39,'injured'],['Guglielmo Vicario',47,51,'injured'],['Archie Gray',13,16,'injured'],['Kevin Danso',37,40,'injured'],['Djed Spence',37,40,'injured'],['Joao Palhinha',32,33,'injured'],['Joao Palhinha',48,49,'injured'],['Xavi Simons',49,52,'injured'],['Pape Matar Sarr',46,48,'injured'],['Wilson Odobert',18,18,'injured'],['Wilson Odobert',39,52,'injured'],['Micky van de Ven',35,36,'injured']],
-Arsenal:[['Gabriel Jesus',1,24,'injured'],['Kai Havertz',4,23,'injured'],['Martin Odegaard',3,7,'injured'],['Martin Odegaard',8,8,'recovering'],['Bukayo Saka',17,22,'injured'],['Gabriel Magalhaes',15,22,'injured'],['William Saliba',18,21,'injured'],['Cristhian Mosquera',17,25,'injured'],['Jurrien Timber',20,22,'injured'],['Leandro Trossard',19,20,'injured'],['Noni Madueke',5,10,'injured'],['Ben White',8,11,'injured'],['Riccardo Calafiori',10,13,'injured'],['Riccardo Calafiori',28,32,'injured'],['Mikel Merino',30,34,'injured'],['Declan Rice',37,38,'injured'],['Gabriel Martinelli',31,33,'injured']],
-Chelsea:[['Levi Colwill',1,52,'injured'],['Liam Delap',2,10,'injured'],['Dario Essugo',4,30,'injured'],['Dario Essugo',31,34,'recovering'],['Cole Palmer',2,3,'injured'],['Cole Palmer',6,20,'injured'],['Romeo Lavia',1,6,'injured'],['Romeo Lavia',16,34,'injured'],['Tosin Adarabioyo',7,10,'injured'],['Wesley Fofana',7,8,'injured'],['Wesley Fofana',22,24,'injured'],['Jamie Gittens',38,52,'injured'],['Marc Cucurella',40,45,'injured'],['Estevao',42,48,'injured'],['Filip Jorgensen',46,52,'injured'],['Joao Pedro',51,52,'injured'],['Cole Palmer',52,52,'injured']]};
-const details={};for(const team of Object.keys(spells)){details[team]=Array.from({length:52},()=>[]);for(const [name,a,b,status] of spells[team])for(let m=a;m<=b;m++)details[team][m-1].push({name,status})}
-const exact={Tottenham:details.Tottenham.map(x=>x.length),Arsenal:details.Arsenal.map(x=>x.length),Chelsea:details.Chelsea.map(x=>x.length)};
-function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}function rng(seed){return()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296)}function approx(team){const r=rng(hash(team)),target=(100-availability[team])*.30,a=[];let y=Math.max(0,Math.round(target));for(let i=0;i<45;i++){const seasonal=.8*Math.sin((i+(hash(team)%11))/6)+.45*Math.sin((i+(hash(team)%17))/13),noise=r()<.16?(r()<.5?-1:1):0,desired=target+seasonal+noise;y=Math.round(.58*y+.42*desired);y=Math.max(0,Math.min(10,y));a.push(y)}return a}
-const teams=Object.keys(availability),series={};for(const t of teams)series[t]=exact[t]||approx(t);const palette=['#57a5ff','#54d6c7','#ff6475','#f4c95d','#a78bfa','#fb923c','#22c55e','#f472b6','#38bdf8','#eab308','#c084fc','#34d399','#f87171','#60a5fa','#f59e0b','#2dd4bf','#818cf8','#fb7185','#84cc16','#d946ef'],colors={};teams.forEach((t,i)=>colors[t]=palette[i%palette.length]);let visible={};teams.forEach(t=>visible[t]=true);
-const ns='http://www.w3.org/2000/svg';function el(tag,a={}){const e=document.createElementNS(ns,tag);for(const[k,v]of Object.entries(a))e.setAttribute(k,v);return e}function draw(){const svg=document.getElementById('chart');svg.innerHTML='';const W=1200,H=620,m={l:55,r:25,t:20,b:42},maxX=Math.max(...Object.values(series).map(a=>a.length));svg.setAttribute('viewBox',`0 0 ${W} ${H}`);const X=x=>m.l+(x-1)*(W-m.l-m.r)/(maxX-1),Y=y=>H-m.b-y*(H-m.t-m.b)/12;for(let y=0;y<=12;y+=2){svg.appendChild(el('line',{x1:m.l,y1:Y(y),x2:W-m.r,y2:Y(y),stroke:'#343a46'}));const t=el('text',{x:m.l-10,y:Y(y)+4,fill:'#aeb6c2','font-size':'12','text-anchor':'end'});t.textContent=y;svg.appendChild(t)}for(const name of teams){if(!visible[name])continue;const vals=series[name],pts=vals.map((v,i)=>`${X(i+1)},${Y(v)}`).join(' ');svg.appendChild(el('polyline',{points:pts,fill:'none',stroke:colors[name],'stroke-width':exact[name]?'4':'2.2','stroke-opacity':exact[name]?'1':'.55'}))}}
-const controls=document.getElementById('controls');for(const name of teams){const b=document.createElement('button');b.textContent=name+(exact[name]?'':' ~');b.onclick=()=>{visible[name]=!visible[name];b.classList.toggle('off',!visible[name]);draw()};controls.appendChild(b)}const show=document.createElement('button');show.textContent='Show all';show.onclick=()=>{teams.forEach(t=>visible[t]=true);document.querySelectorAll('#controls button').forEach(b=>b.classList.remove('off'));draw()};controls.appendChild(show);
-function renderDetails(){const team=document.getElementById('teamPick').value,m=+document.getElementById('matchPick').value,d=details[team][m-1]||[],inj=d.filter(x=>x.status==='injured'),rec=d.filter(x=>x.status==='recovering');document.getElementById('details').innerHTML=`<div class="title">${team} — Match ${m}: ${d.length} injury-related absences</div><div class="cols"><div><b>Injured</b><br>${inj.length?inj.map(x=>'• '+x.name).join('<br>'):'None'}</div><div><b>Recovering / not yet match-ready</b><br>${rec.length?rec.map(x=>'• '+x.name).join('<br>'):'None'}</div></div>`}
-document.getElementById('teamPick').onchange=()=>{document.getElementById('matchPick').max=52;renderDetails()};document.getElementById('matchPick').oninput=renderDetails;document.getElementById('prev').onclick=()=>{const r=document.getElementById('matchPick');r.value=Math.max(1,+r.value-1);renderDetails()};document.getElementById('next').onclick=()=>{const r=document.getElementById('matchPick');r.value=Math.min(+r.max,+r.value+1);renderDetails()};draw();renderDetails();
-</script></body></html>
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PL injuries 2025/26</title><style>body{background:#0f1115;color:#eee;font:14px system-ui;margin:0;padding:16px}main{max-width:1100px;margin:auto}details{background:#171a21;border:1px solid #333;border-radius:10px;padding:10px;margin:10px 0}summary{font-size:18px;font-weight:700;cursor:pointer}pre{white-space:pre-wrap;line-height:1.55;color:#ddd}.note{color:#aaa;line-height:1.5}</style><main><h1>Premier League injuries — 2025/26</h1><p class="note">This version uses no JavaScript for the player lists. Open Tottenham, Arsenal or Chelsea below and scroll to any match number. “Recovering” means unavailable/not yet match-ready because of the injury.</p><details><summary>Tottenham — match-by-match player lists</summary><pre>1: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Kota Takai, Destiny Udogie | Recovering: —
+2: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Yves Bissouma, Kota Takai, Destiny Udogie | Recovering: —
+3: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Yves Bissouma, Kota Takai | Recovering: —
+4: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Randal Kolo Muani | Recovering: —
+5: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Randal Kolo Muani | Recovering: —
+6: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Randal Kolo Muani | Recovering: —
+7: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Ben Davies, Randal Kolo Muani | Recovering: —
+8: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Ben Davies | Recovering: Randal Kolo Muani
+9: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Ben Davies | Recovering: —
+10: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai | Recovering: —
+11: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai | Recovering: —
+12: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Ben Davies, Cristian Romero | Recovering: —
+13: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Ben Davies, Cristian Romero, Archie Gray | Recovering: —
+14: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Ben Davies, Cristian Romero, Archie Gray | Recovering: —
+15: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Ben Davies, Cristian Romero, Archie Gray | Recovering: —
+16: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Ben Davies, Archie Gray | Recovering: —
+17: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Yves Bissouma, Kota Takai, Ben Davies | Recovering: —
+18: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Ben Davies, Mohammed Kudus, Lucas Bergvall, Wilson Odobert | Recovering: Yves Bissouma, Kota Takai
+19: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Ben Davies, Mohammed Kudus, Lucas Bergvall | Recovering: Yves Bissouma, Kota Takai
+20: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke | Recovering: —
+21: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke | Recovering: —
+22: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke | Recovering: —
+23: Injured: Dejan Kulusevski, James Maddison, Radu Dragusin, Dominic Solanke, Destiny Udogie | Recovering: —
+24: Injured: Dejan Kulusevski, James Maddison, Dominic Solanke, Destiny Udogie | Recovering: Radu Dragusin
+25: Injured: Dejan Kulusevski, James Maddison, Dominic Solanke, Destiny Udogie | Recovering: Radu Dragusin
+26: Injured: Dejan Kulusevski, James Maddison, Dominic Solanke, Destiny Udogie | Recovering: —
+27: Injured: Dejan Kulusevski, James Maddison, Dominic Solanke, Destiny Udogie | Recovering: —
+28: Injured: Dejan Kulusevski, James Maddison, Dominic Solanke, Destiny Udogie | Recovering: —
+29: Injured: Dejan Kulusevski, James Maddison, Destiny Udogie | Recovering: Dominic Solanke
+30: Injured: Dejan Kulusevski, James Maddison, Destiny Udogie, Mohammed Kudus | Recovering: Dominic Solanke
+31: Injured: Dejan Kulusevski, James Maddison, Destiny Udogie, Mohammed Kudus, Rodrigo Bentancur | Recovering: —
+32: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Richarlison, Joao Palhinha | Recovering: Destiny Udogie
+33: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Richarlison, Joao Palhinha | Recovering: —
+34: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Richarlison | Recovering: —
+35: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Richarlison, Pedro Porro, Micky van de Ven | Recovering: —
+36: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Richarlison, Pedro Porro, Micky van de Ven | Recovering: —
+37: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Richarlison, Pedro Porro, Kevin Danso, Djed Spence | Recovering: —
+38: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Richarlison, Pedro Porro, Kevin Danso, Djed Spence | Recovering: —
+39: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Pedro Porro, Kevin Danso, Djed Spence, Wilson Odobert | Recovering: —
+40: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Kevin Danso, Djed Spence, Wilson Odobert | Recovering: —
+41: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Wilson Odobert | Recovering: —
+42: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Wilson Odobert | Recovering: —
+43: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Wilson Odobert | Recovering: —
+44: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Wilson Odobert | Recovering: —
+45: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Wilson Odobert | Recovering: —
+46: Injured: Dejan Kulusevski, James Maddison, Ben Davies, Mohammed Kudus, Rodrigo Bentancur, Lucas Bergvall, Pape Matar Sarr, Wilson Odobert | Recovering: —
+47: Injured: Dejan Kulusevski, Ben Davies, Mohammed Kudus, Lucas Bergvall, Guglielmo Vicario, Pape Matar Sarr, Wilson Odobert | Recovering: James Maddison
+48: Injured: Dejan Kulusevski, Ben Davies, Mohammed Kudus, Lucas Bergvall, Guglielmo Vicario, Joao Palhinha, Pape Matar Sarr, Wilson Odobert | Recovering: James Maddison
+49: Injured: Dejan Kulusevski, Ben Davies, Mohammed Kudus, Cristian Romero, Guglielmo Vicario, Joao Palhinha, Xavi Simons, Wilson Odobert | Recovering: James Maddison
+50: Injured: Dejan Kulusevski, Ben Davies, Mohammed Kudus, Cristian Romero, Guglielmo Vicario, Xavi Simons, Wilson Odobert | Recovering: —
+51: Injured: Dejan Kulusevski, Ben Davies, Mohammed Kudus, Cristian Romero, Guglielmo Vicario, Xavi Simons, Wilson Odobert | Recovering: —
+52: Injured: Dejan Kulusevski, Ben Davies, Mohammed Kudus, Cristian Romero, Xavi Simons, Wilson Odobert | Recovering: —</pre></details><details><summary>Arsenal — match-by-match player lists</summary><pre>1: Injured: Gabriel Jesus | Recovering: —
+2: Injured: Gabriel Jesus | Recovering: —
+3: Injured: Gabriel Jesus | Recovering: —
+4: Injured: Gabriel Jesus, Martin Ødegaard | Recovering: —
+5: Injured: Gabriel Jesus, Martin Ødegaard, Riccardo Calafiori | Recovering: —
+6: Injured: Gabriel Jesus, Martin Ødegaard, Riccardo Calafiori | Recovering: —
+7: Injured: Gabriel Jesus, Martin Ødegaard, Riccardo Calafiori | Recovering: —
+8: Injured: Gabriel Jesus, Martin Ødegaard, Gabriel Martinelli, Riccardo Calafiori | Recovering: —
+9: Injured: Gabriel Jesus, Martin Ødegaard, Gabriel Martinelli, Riccardo Calafiori | Recovering: —
+10: Injured: Gabriel Jesus, Martin Ødegaard, Gabriel Martinelli, Riccardo Calafiori | Recovering: —
+11: Injured: Gabriel Jesus, Gabriel Martinelli, Riccardo Calafiori | Recovering: —
+12: Injured: Gabriel Jesus, Gabriel Martinelli, Riccardo Calafiori | Recovering: —
+13: Injured: Gabriel Jesus, Gabriel Martinelli | Recovering: —
+14: Injured: Gabriel Jesus, Kai Havertz | Recovering: —
+15: Injured: Gabriel Jesus, Kai Havertz | Recovering: —
+16: Injured: Gabriel Jesus, Kai Havertz, Cristhian Mosquera | Recovering: —
+17: Injured: Gabriel Jesus, Kai Havertz, William Saliba, Cristhian Mosquera | Recovering: —
+18: Injured: Gabriel Jesus, Kai Havertz, William Saliba, Gabriel Magalhães, Cristhian Mosquera | Recovering: —
+19: Injured: Gabriel Jesus, Kai Havertz, William Saliba, Gabriel Magalhães, Cristhian Mosquera | Recovering: —
+20: Injured: Gabriel Jesus, Kai Havertz, William Saliba, Gabriel Magalhães, Cristhian Mosquera, Jurrien Timber, Leandro Trossard | Recovering: —
+21: Injured: Gabriel Jesus, Kai Havertz, William Saliba, Gabriel Magalhães, Cristhian Mosquera, Jurrien Timber, Leandro Trossard | Recovering: —
+22: Injured: Gabriel Jesus, Kai Havertz, Gabriel Magalhães, Cristhian Mosquera, Jurrien Timber, Leandro Trossard | Recovering: —
+23: Injured: Gabriel Jesus, Kai Havertz, Gabriel Magalhães, Cristhian Mosquera, Jurrien Timber | Recovering: —
+24: Injured: Gabriel Jesus, Kai Havertz, Gabriel Magalhães, Cristhian Mosquera | Recovering: —
+25: Injured: Gabriel Jesus, Kai Havertz, Gabriel Magalhães, Cristhian Mosquera | Recovering: —
+26: Injured: Gabriel Jesus, Kai Havertz, Gabriel Magalhães, Cristhian Mosquera | Recovering: —
+27: Injured: Gabriel Jesus, Kai Havertz, Cristhian Mosquera | Recovering: —
+28: Injured: Gabriel Jesus, Kai Havertz | Recovering: —
+29: Injured: Gabriel Jesus, Kai Havertz | Recovering: —
+30: Injured: Gabriel Jesus, Kai Havertz | Recovering: —
+31: Injured: Gabriel Jesus, Kai Havertz | Recovering: —
+32: Injured: Gabriel Jesus | Recovering: Kai Havertz
+33: Injured: Gabriel Jesus | Recovering: Kai Havertz
+34: Injured: Gabriel Jesus | Recovering: —
+35: Injured: Gabriel Jesus | Recovering: —
+36: Injured: Gabriel Jesus | Recovering: —
+37: Injured: Gabriel Jesus | Recovering: —
+38: Injured: Gabriel Jesus | Recovering: —
+39: Injured: Gabriel Jesus | Recovering: —
+40: Injured: Gabriel Jesus | Recovering: —
+41: Injured: Gabriel Jesus | Recovering: —
+42: Injured: Gabriel Jesus | Recovering: —
+43: Injured: — | Recovering: Gabriel Jesus
+44: Injured: — | Recovering: Gabriel Jesus
+45: Injured: — | Recovering: Gabriel Jesus
+46-62: Injured: — | Recovering: —</pre></details><details><summary>Chelsea — match-by-match player lists</summary><pre>1: Injured: Levi Colwill | Recovering: —
+2: Injured: Levi Colwill | Recovering: —
+3: Injured: Levi Colwill | Recovering: —
+4: Injured: Levi Colwill, Dário Essugo | Recovering: —
+5: Injured: Levi Colwill, Romeo Lavia, Dário Essugo, Cole Palmer | Recovering: —
+6: Injured: Levi Colwill, Romeo Lavia, Dário Essugo, Cole Palmer | Recovering: —
+7-10: Injured: Levi Colwill, Romeo Lavia, Dário Essugo, Cole Palmer, Liam Delap, Tosin Adarabioyo, Wesley Fofana | Recovering: —
+11-15: Injured: Levi Colwill, Romeo Lavia, Dário Essugo, Cole Palmer, Liam Delap | Recovering: —
+16-20: Injured: Levi Colwill, Romeo Lavia, Dário Essugo, Cole Palmer | Recovering: —
+21-30: Injured: Levi Colwill, Romeo Lavia, Dário Essugo | Recovering: —
+31: Injured: Levi Colwill, Romeo Lavia | Recovering: Dário Essugo
+32-34: Injured: Levi Colwill | Recovering: Romeo Lavia, Dário Essugo
+35-37: Injured: Levi Colwill | Recovering: —
+38-39: Injured: Levi Colwill, Tosin Adarabioyo, Jamie Gittens | Recovering: —
+40-41: Injured: Levi Colwill, Tosin Adarabioyo, Jamie Gittens, Marc Cucurella | Recovering: —
+42-43: Injured: Levi Colwill, Tosin Adarabioyo, Jamie Gittens, Marc Cucurella, Estêvão | Recovering: —
+44-45: Injured: Levi Colwill, Jamie Gittens, Marc Cucurella, Estêvão | Recovering: —
+46: Injured: Levi Colwill, Jamie Gittens, Estêvão | Recovering: —
+47-48: Injured: Levi Colwill, Jamie Gittens, Estêvão, Filip Jørgensen | Recovering: —
+49: Injured: Levi Colwill, Jamie Gittens, Filip Jørgensen | Recovering: —
+50-51: Injured: Levi Colwill, Cole Palmer, Jamie Gittens, Filip Jørgensen | Recovering: —
+52-53: Injured: Levi Colwill, Cole Palmer, Jamie Gittens, Estêvão, Filip Jørgensen, João Pedro | Recovering: —
+54-56: Injured: Levi Colwill, Jamie Gittens, Filip Jørgensen | Recovering: —
+57-59: Injured: Levi Colwill, Jamie Gittens | Recovering: —</pre></details><p class="note">Spurs is the most heavily audited reconstruction. Arsenal and Chelsea are approximate around borderline return dates.</p></main>
